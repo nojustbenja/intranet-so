@@ -19,19 +19,37 @@ un equipo cliente dentro de la misma red.
 
 ### Arquitectura general
 
-```
-+---------------------+                         +------------------------------+
-|   Equipo Cliente    |  LAN / Tailscale        |  VM Proxmox - Ubuntu Server  |
-|   (Navegador / SSH) | <---------------------> |  IP LAN: 10.77.0.150/24      |
-|                     |  HTTP (80) / SSH (22)   |  IP Tailscale: 100.86.27.31  |
-+---------------------+                         +------------------------------+
-                                                 |  - Proxmox VE (vmbr0 Bridge) |
-                                                 |  - Servidor web (systemd)    |
-                                                 |  - /var/www/intranet         |
-                                                 |  - Usuarios y permisos POSIX |
-                                                 |  - Firewall ufw (deny)       |
-                                                 |  - Logs access/error         |
-                                                 +------------------------------+
+```mermaid
+flowchart LR
+    subgraph Cliente["Equipo Cliente"]
+        NAV["Navegador Web / Terminal SSH"]
+    end
+
+    subgraph Red["Acceso de Red"]
+        LAN["Red Local (LAN 10.77.0.0/24)"]
+        TS["Tailscale VPN (100.86.27.31)"]
+    end
+
+    subgraph Proxmox["Host Proxmox VE (atlas — 10.77.0.10)"]
+        BR["Bridge vmbr0 (Capa 2)"]
+        subgraph VM["VM 200: intranet-so (Ubuntu Server 24.04 LTS)"]
+            NET["eth0: 10.77.0.150/24 (IP fija)"]
+            UFW["Firewall ufw (default deny, 22 y 80)"]
+            WEB["Nginx (systemd)"]
+            SITE["/var/www/intranet (HTML/CSS + permisos POSIX)"]
+            LOGS["Logs access.log / error.log"]
+        end
+    end
+
+    NAV -->|"HTTP (80) / SSH (22)"| LAN
+    NAV -->|"SSH (22) / HTTP (80) remoto"| TS
+    LAN --> BR
+    TS --> NET
+    BR --> NET
+    NET --> UFW
+    UFW --> WEB
+    WEB --> SITE
+    WEB --> LOGS
 ```
 
 ---
