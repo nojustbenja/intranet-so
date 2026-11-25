@@ -377,3 +377,13 @@ sudo tar -czvf respaldo_intranet_$(date +%F).tar.gz \
 - Se usó contenido ficticio y no se añadieron recursos dependientes de Internet.
 - Se comprobaron los enlaces internos y que las tres páginas y la hoja de estilos respondan correctamente en una prueba local. El despliegue en Ubuntu Server queda pendiente.
 - El 404 de demostración se obtiene solicitando una ruta inexistente; no requiere agregar una página rota al sitio.
+
+---
+
+## Trabajo realizado por Benjamín
+
+- Se dimensionaron los recursos necesarios para hostear el sitio estático de `sitio/` (`24 KB`) y se aprovisionó la VM **`intranet-so`** (`VMID 200`) en Proxmox VE (`atlas`) con **Ubuntu Server 24.04 LTS**, `2 vCPU`, `2 GB RAM` y `20 GB` de disco (`local-lvm`).
+- Se configuró la red en modo **Bridge (`vmbr0`)** con **IP fija `10.77.0.150/24`** (gateway `10.77.0.1`, DNS `8.8.8.8 / 1.1.1.1`) mediante `cloud-init` / Netplan, verificando conectividad bidireccional (`ip a`, `ping`) y acceso SSH.
+- Se creó el snapshot base **`base-inicial`** en Proxmox para respaldo y replicación.
+- Se instaló **Tailscale** (`100.86.27.31`) y se habilitaron usuarios individuales con acceso SSH para cada integrante del equipo (`vicente`, `guille`, `simon`, `pia`, `carlita`), dejando la VM limpia sin `nginx` para que cada rol ejecute su parte.
+- Se documentó el análisis de recursos, la comparativa Ubuntu Server vs Debian, la topología de red, el despliegue replicable y el guion de demo en vivo en [`docs/infraestructura-vm.md`](docs/infraestructura-vm.md).
