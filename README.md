@@ -21,15 +21,16 @@ un equipo cliente dentro de la misma red.
 
 ```
 +---------------------+                         +------------------------------+
-|   Equipo Cliente    |   Red local (LAN)       |   VM - Ubuntu Server         |
-|   (Navegador web)   | <---------------------> |   IP fija: 192.168.x.x       |
-|                     |     HTTP (puerto 80)    |   Servidor web + Intranet    |
+|   Equipo Cliente    |  LAN / Tailscale        |  VM Proxmox - Ubuntu Server  |
+|   (Navegador / SSH) | <---------------------> |  IP LAN: 10.77.0.150/24      |
+|                     |  HTTP (80) / SSH (22)   |  IP Tailscale: 100.86.27.31  |
 +---------------------+                         +------------------------------+
-                                                 |  - Servidor web (systemd)   |
-                                                 |  - /var/www/intranet        |
-                                                 |  - Usuarios y permisos POSIX|
-                                                 |  - Firewall ufw (deny)      |
-                                                 |  - Logs access/error        |
+                                                 |  - Proxmox VE (vmbr0 Bridge) |
+                                                 |  - Servidor web (systemd)    |
+                                                 |  - /var/www/intranet         |
+                                                 |  - Usuarios y permisos POSIX |
+                                                 |  - Firewall ufw (deny)       |
+                                                 |  - Logs access/error         |
                                                  +------------------------------+
 ```
 
@@ -71,49 +72,50 @@ Se eligió **Ubuntu Server (LTS)** por las siguientes razones:
 - **Sin entorno gráfico:** menor consumo de recursos, orientado a servidor.
 - **Gestor de paquetes `apt`** y repositorios estables.
 
-### Instalación y configuración de la VM
+### Instalación y configuración de la VM (Proxmox VE)
 
-1. Crear la VM (VirtualBox / VMware / KVM) con:
-   - 2 vCPU, 2 GB RAM, 20 GB de disco.
-   - Adaptador de red en modo **Puente (Bridged)** o **Red interna** para que el
-     cliente alcance al servidor.
-2. Instalar Ubuntu Server desde la ISO oficial.
+1. Crear la VM (`VMID 200`, `intranet-so`) en **Proxmox VE** (`atlas`) con:
+   - **2 vCPU (`host`)**, **2 GB RAM**, **20 GB de disco** (`local-lvm`).
+   - Adaptador de red `virtio` en modo **Bridge (`vmbr0`)** sobre la LAN `10.77.0.0/24`.
+2. Desplegar **Ubuntu Server 24.04 LTS** usando la Cloud Image oficial + `cloud-init` (ver procedimiento completo y replicable en [`docs/infraestructura-vm.md`](docs/infraestructura-vm.md)).
+3. Crear snapshot base (`base-inicial`) en Proxmox y habilitar acceso remoto vía **Tailscale** (`100.86.27.31`).
 
-### Configuración de IP fija (Netplan)
+### Configuración de IP fija (Netplan / cloud-init)
 
-Ubuntu Server usa **Netplan**. Editar el archivo en `/etc/netplan/`:
+Ubuntu Server usa **Netplan**. Al aprovisionar con `cloud-init` en Proxmox (`ip=10.77.0.150/24,gw=10.77.0.1`), se genera automáticamente `/etc/netplan/50-cloud-init.yaml`:
 
 ```yaml
-# /etc/netplan/00-installer-config.yaml
+# /etc/netplan/50-cloud-init.yaml
 network:
   version: 2
   ethernets:
-    enp0s3:
+    eth0:
       dhcp4: no
       addresses:
-        - 192.168.1.100/24
+        - 10.77.0.150/24
       routes:
         - to: default
-          via: 192.168.1.1
+          via: 10.77.0.1
       nameservers:
         addresses: [8.8.8.8, 1.1.1.1]
 ```
 
-Aplicar la configuración:
+Verificar la configuración aplicada:
 
 ```bash
-sudo netplan apply
-ip addr show enp0s3          # Verificar la IP asignada
+ip -br a                     # Verificar IP fija 10.77.0.150/24 en eth0
+sudo cat /etc/netplan/50-cloud-init.yaml
 ```
 
 ### Demostración de conectividad cliente-servidor
 
 ```bash
-# Desde el CLIENTE hacia el SERVIDOR
-ping 192.168.1.100
+# Desde el CLIENTE hacia el SERVIDOR (LAN o Tailscale)
+ping -c 4 10.77.0.150
+ssh <usuario>@100.86.27.31
 
-# Verificar que el puerto web responde (una vez instalado el servidor)
-curl http://192.168.1.100
+# Desde el SERVIDOR hacia el gateway
+ping -c 4 10.77.0.1
 ```
 
 ---
