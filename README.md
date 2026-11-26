@@ -167,7 +167,7 @@ sudo apt install -y nginx
 # /etc/nginx/sites-available/intranet
 server {
     listen 80;
-    server_name intranet.local 192.168.1.100;
+    server_name intranet.local 10.77.0.150;
 
     root /var/www/intranet;
     index index.html;
@@ -328,9 +328,29 @@ sudo awk '{print $9}' /var/log/nginx/intranet_access.log | sort | uniq -c | sort
 
 | Código | Significado | Cómo provocarlo |
 |--------|-------------|-----------------|
-| **200 OK** | Petición exitosa | Acceder a `http://192.168.1.100/index.html` |
-| **403 Forbidden** | Acceso denegado por permisos | Quitar permisos de lectura a un archivo y solicitarlo |
-| **404 Not Found** | Recurso inexistente | Acceder a `http://192.168.1.100/noexiste.html` |
+| **200 OK** | Petición exitosa | Acceder a `http://10.77.0.150/index.html` |
+| **403 Forbidden** | Acceso denegado por permisos | Quitar el permiso de lectura para `www-data` a un archivo y solicitarlo |
+| **404 Not Found** | Recurso inexistente | Acceder a `http://10.77.0.150/noexiste.html` |
+
+Para el **403** se usa una copia de prueba, de modo que el sitio real no quede inutilizado
+durante la demostración. Nginx se ejecuta como `www-data`, que no es dueño del archivo
+ni pertenece al grupo `editores`; por eso basta con quitarle el permiso de lectura a
+*otros* (`o-r`):
+
+```bash
+# 403: copia de prueba sin lectura para "otros" (www-data)
+sudo cp /var/www/intranet/recursos.html /var/www/intranet/demo-403.html
+sudo chmod o-r /var/www/intranet/demo-403.html
+
+curl -I http://10.77.0.150/demo-403.html     # HTTP/1.1 403 Forbidden
+sudo tail -n 5 /var/log/nginx/intranet_error.log  # ... Permission denied
+
+# Limpiar la evidencia y dejar el sitio intacto
+sudo rm -f /var/www/intranet/demo-403.html
+```
+
+> Si se quitara el permiso al archivo real (`index.html`), el sitio dejaría de cargar
+> hasta restaurar los permisos; por eso la prueba se hace sobre una copia desechable.
 
 ```bash
 # Errores del servidor
