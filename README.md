@@ -424,6 +424,34 @@ sudo tar -czvf respaldo_intranet_$(date +%F).tar.gz \
 
 - Se dimensionaron los recursos necesarios para hostear el sitio estático de `sitio/` (`24 KB`) y se aprovisionó la VM **`intranet-so`** (`VMID 200`) en Proxmox VE (`atlas`) con **Ubuntu Server 24.04 LTS**, `2 vCPU`, `2 GB RAM` y `20 GB` de disco (`local-lvm`).
 - Se configuró la red en modo **Bridge (`vmbr0`)** con **IP fija `10.77.0.150/24`** (gateway `10.77.0.1`, DNS `8.8.8.8 / 1.1.1.1`) mediante `cloud-init` / Netplan, verificando conectividad bidireccional (`ip a`, `ping`) y acceso SSH.
-- Se creó el snapshot base **`base-inicial`** en Proxmox para respaldo y replicación.
+- Se creó el snapshot base **`base-inicial`** y el snapshot final **`final-listo`** en Proxmox (`atlas`) una vez completadas y verificadas todas las etapas del equipo.
 - Se instaló **Tailscale** (`100.86.27.31`) y se habilitaron usuarios individuales con acceso SSH para cada integrante del equipo (`vicente`, `guille`, `simon`, `pia`, `carlita`), dejando la VM limpia sin `nginx` para que cada rol ejecute su parte.
 - Se documentó el análisis de recursos, la comparativa Ubuntu Server vs Debian, la topología de red, el despliegue replicable y el guion de demo en vivo en [`docs/infraestructura-vm.md`](docs/infraestructura-vm.md).
+
+---
+
+## Trabajo realizado por Vicente
+
+- Se instaló **Nginx 1.24.0** en la VM `intranet-so` y se configuró el server block en `/etc/nginx/sites-available/intranet` apuntando a `/var/www/intranet`, deshabilitando el sitio `default`.
+- Se desplegó el contenido de `sitio/` en `/var/www/intranet/`, se validó la sintaxis con `nginx -t` y se habilitó el arranque automático mediante `systemd` (`systemctl is-active nginx` → `active`, `systemctl is-enabled nginx` → `enabled`).
+
+---
+
+## Trabajo realizado por Simón
+
+- Se creó el grupo **`editores`** (`gid 1006`) y el usuario **`editor_intranet`** (`uid 1006`) **sin privilegios `sudo`** (*principio de mínimo privilegio*: `User editor_intranet is not allowed to run sudo on intranet-so`).
+- Se configuraron los permisos POSIX sobre `/var/www/intranet` con propietario `root:editores`, permisos `775` y bit **SGID (`g+s`)** (`drwxrwsr-x`), verificando la edición del contenido (`index.html`) y el bloqueo de comandos administrativos.
+
+---
+
+## Trabajo realizado por Pía
+
+- Se configuró y activó el firewall **`ufw`** con política por defecto **`deny (incoming)`** y **`allow (outgoing)`**, habilitando exclusivamente los puertos **`22/tcp`** (SSH) y **`80/tcp`** (HTTP) en IPv4 e IPv6.
+- Se verificaron las reglas activas (`ufw status verbose`) y las pruebas de conectividad de puerto permitido (`80/tcp`) frente a puerto bloqueado (`8080/tcp`).
+
+---
+
+## Trabajo realizado por Carlita
+
+- Se revisaron y evidenciaron los logs de Nginx (`/var/log/nginx/intranet_access.log` y `/var/log/nginx/intranet_error.log`), registrando respuestas **`200 OK`**, **`403 Forbidden`** (mediante archivo temporal de prueba sin permisos de lectura, posteriormente eliminado) y **`404 Not Found`**.
+- Se generó el respaldo comprimido del sitio y de la configuración de Nginx (`tar -czvf`) y se incorporó la copia final actualizada en [`respaldos/respaldo_intranet_2026-11-26.tar.gz`](respaldos/respaldo_intranet_2026-11-26.tar.gz).
